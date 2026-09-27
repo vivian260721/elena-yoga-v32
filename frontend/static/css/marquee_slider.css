@@ -1,0 +1,59 @@
+/* style.css */
+@keyframes marquee-ultra-long {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+}
+
+/* 外層容器：維持單一視窗高度 */
+.ultra-film-container {
+    overflow: hidden;
+    height: 130px;
+    min-height: 90px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    margin-top: 6.4%;
+    aspect-ratio: 10/1.6;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+@media (max-width:768px){
+    .ultra-film-container {
+        height: 100px;
+    }
+}
+
+/* 單一道跑馬燈軌道，內部使用 Flex 左右排列 */
+.ultra-film-track {
+    display: flex;
+    width: 400%; /* 讓軌道夠長以容納串接的兩段內容 */
+    height: 100%;
+    animation: marquee-ultra-long 25s linear infinite;
+}
+
+.ultra-film-track:hover {
+    animation-play-state: paused;
+}
+
+/* 膠卷區段基礎設定 */
+.film-section {
+    height: 100%;
+    flex: 0 0 25%; /* 平分軌道寬度 */
+    mix-blend-mode: multiply;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.film-section-a {
+    background-image: url('../images/yoga_film_1.png');
+    margin-left:-0.15%;
+}
+
+.film-section-b {
+    background-image: url('../images/yoga_film_2.png');
+    margin-left: -0.15%;
+    position: relative;
+    z-index: 2;
+}

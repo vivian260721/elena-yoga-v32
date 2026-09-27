@@ -1,0 +1,27 @@
+<!--
+  about.html
+  ==========
+  純靜態 HTML 頁面範例（對應需求「也會有 static html,css,js 的�檔案」）。
+  此頁面不經過 NiceGUI 渲染，直接由 app.add_static_files("/static", ...) 提供靜態存取，
+  瀏覽器可直接開啟 /static/about.html 查看，適合放系統說明、使用條款等不需要動態邏輯的內容。
+-->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>關於 - 瑜珈姿勢辨識系統</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="page-container">
+    <h1 class="page-title">關於本系統</h1>
+    <div class="section-card">
+      <p>
+        本系統透過 MediaPipe Pose 擷取人體關鍵點，比對瑜珈標準姿勢資料庫，
+        並使用 Gemma3 生成個人化的姿勢調整建議，協助使用者在家也能安全地練習瑜珈。
+      </p>
+      <p class="result-summary-text">技術架構：NiceGUI + FastAPI + MediaPipe + Gemma3</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./backend
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    environment:
+      LIGHTGBM_MODEL_PATH: Model/anglediff_lightgbm.joblib
+      FEEDBACK_JSON_PATH: data/pose_feedback_fix.json
+      REFERENCE_POSES_PATH: utils/yoga_5poses_mediapipe_dataset_complete.csv
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+    environment:
+      YOGA_API_BASE_URL: http://backend:8000
+      YOGA_RELOAD: "false"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

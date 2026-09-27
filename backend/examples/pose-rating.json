@@ -1,0 +1,13 @@
+{
+  "rating": {
+    "score": 4,
+    "encouragement": "多數可判定角度已符合標準，做得很好。",
+    "max_score": 5,
+    "hearts": 4,
+    "max_hearts": 5,
+    "correct_count": 6,
+    "detected_count": 8,
+    "total_count": 8,
+    "correct_ratio": 0.75
+  }
+}

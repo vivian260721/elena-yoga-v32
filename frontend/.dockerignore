@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+.venv
+venv
+frontend
+**/__pycache__
+**/*.pyc
+**/*.log
+.pytest_cache
+tests
+static/videos/old
+*.zip

@@ -1,0 +1,128 @@
+.pose-carousel-stage {
+  width: 100%;
+  padding: 24px 0 36px;
+  overflow: hidden;
+}
+
+.pose-carousel {
+  width: 100%;
+  height: 64vh; 
+  min-height: 480px; 
+  max-height: 680px;
+  overflow: visible !important;
+  touch-action: pan-y;
+}
+
+.pose-carousel .swiper-wrapper {
+  align-items: center;
+}
+
+
+/* ==========================================================
+   Slide 與 Card 設定
+   ========================================================== */
+
+.pose-carousel .swiper-slide {
+  width: clamp(300px, 30vw, 380px) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+  cursor: pointer;
+}
+
+.pose-carousel-card {
+  width: 100%;
+  height: 100%;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+  border-radius: 24px !important;
+  background: #ffffff;
+  box-shadow: none !important; /* 無陰影 */
+  user-select: none;
+  pointer-events: auto; 
+}
+
+.pose-carousel .swiper-slide-active .pose-carousel-card {
+  box-shadow: none !important;
+}
+
+
+/* ==========================================================
+   Video 與 內容層
+   ========================================================== */
+
+.pose-carousel-video {
+  width: 100%;
+  height: 72%;
+  background: #000;
+  /* 預設由 JS 動態控制：置中時可點擊播放，兩側時關閉以防誤觸與干擾 */
+}
+
+.pose-carousel-title,
+.pose-carousel-desc,
+.pose-carousel-status {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+.pose-carousel-title {
+  color: var(--color-text);
+  font-size: clamp(0.8rem, 1.5vw, 1.2rem);
+  font-weight: 700;
+  padding: 0 14px;
+  margin: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pose-carousel-desc {
+  color: var(--color-text-muted);
+  font-size: clamp(0.7rem, 1.1vw, 1rem);
+  padding: 0 14px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.pose-carousel-status {
+  display: inline-block;
+  margin: 6px 16px 10px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-family: monospace;
+  font-size: clamp(0.62rem, 0.8vw, 0.72rem);
+}
+
+
+/* ==========================================================
+   RWD 響應式
+   ========================================================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .pose-carousel {
+    height: clamp(480px, 62vw, 600px);
+  }
+  .pose-carousel .swiper-slide {
+    width: clamp(280px, 32vw, 340px) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .pose-carousel {
+    height: clamp(440px, 120vw, 520px);
+  }
+  .pose-carousel .swiper-slide {
+    width: 260px !important;
+  }
+  .pose-carousel-card {
+    border-radius: 20px !important;
+  }
+}

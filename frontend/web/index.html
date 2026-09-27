@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>瑜伽姿勢分析</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: #f4f7f5; color: #203b30; font: 17px/1.6 system-ui, sans-serif; }
+    main { max-width: 1100px; margin: auto; padding: 32px 20px; }
+    h1 { margin-bottom: 8px; }
+    form, article, figure { background: white; padding: 20px; border-radius: 12px; }
+    form { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+    button { background: #245940; color: white; border: 0; padding: 12px 24px; border-radius: 8px; font: inherit; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: wait; }
+    input { max-width: 100%; font: inherit; }
+    .images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    figure { margin: 0 0 20px; }
+    figcaption { font-weight: bold; margin-bottom: 12px; }
+    img { display: block; width: 100%; height: auto; }
+    video { display: block; width: 100%; max-height: 480px; background: #111; }
+    #timeline { width: 100%; }
+    .legend { display: flex; gap: 20px; flex-wrap: wrap; margin: 16px 0; }
+    .dot { display: inline-block; width: 14px; height: 14px; border: 1px solid #555; border-radius: 50%; margin-right: 6px; }
+    #status { min-height: 1.6em; }
+    #status.error { color: #b42318; }
+    #feedback { white-space: pre-wrap; }
+    #encouragement { color: #245940; font-weight: 600; }
+    #score { color: #c43564; font-size: 24px; } .pose-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 16px; }
+    .rating-card { margin: 20px 0; border: 2px solid #efd0db; }
+    .rating-card h2 { margin: 0; }
+    @media (max-width: 650px) { .images { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>瑜伽姿勢分析</h1>
+  <p>上傳清楚的單人全身照片或短片，查看骨架標記與調整建議。</p>
+  <form id="upload">
+    <label for="photo">選擇照片或影片</label>
+    <input id="photo" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" required>
+    <button id="submit" type="submit">分析姿勢</button>
+  </form>
+  <p>照片：JPEG、PNG、WebP，最多 10 MiB。影片：MP4、MOV、WebM，最多 50 MiB、60 秒、4K 像素總量，每秒取樣 2 張。<a id="api-docs">API 文件</a></p>
+  <p id="status" role="status" aria-live="polite"></p>
+  <section id="result" hidden>
+    <article id="video-panel" hidden>
+      <h2>原始影片與分析時間軸</h2>
+      <video id="video" controls playsinline></video>
+      <p id="video-notice" role="status"></p>
+      <p id="video-summary"></p>
+      <label for="timeline">拖曳查看取樣影格：<span id="frame-time"></span></label>
+      <input id="timeline" type="range" min="0" max="0" step="1" value="0">
+      <p>下方顯示最近的已分析取樣時刻，並非逐格即時標記影片。快速動作可能發生在兩次取樣之間。</p>
+    </article>
+    <div class="legend" aria-label="骨架點顏色說明">
+      <span><i class="dot" style="background:#00ff00"></i>綠色：正確</span>
+      <span><i class="dot" style="background:#ff0000"></i>紅色：需調整</span>
+      <span><i class="dot" style="background:#808080"></i>灰色：未評分或無法判定</span>
+    </div>
+    <div class="images">
+      <figure><figcaption>原始照片</figcaption><img id="original" alt="上傳的原始照片"></figure>
+      <figure><figcaption>預測骨架與姿勢標記</figcaption><img id="skeleton" alt="疊加骨架與紅綠灰狀態點的照片"></figure>
+    </div>
+    <article>
+      <div class="pose-heading"><h2 id="pose"></h2><span id="score" role="status">尚未評分</span></div>
+      <p id="encouragement" hidden></p>
+      <p id="rating-detail"></p>
+      <p id="assessment"></p>
+      <p id="feedback"></p>
+      <p id="feedback-time"></p>
+      <ul id="suggestions"></ul>
+      紅點表示參與的角度有超標；臉部等未納入角度評分的點標灰色。</p>
+    </article>
+  </section>
+</main>
+<script src="config.js"></script>
+<script>
+  const apiBaseUrl = window.YOGA_CONFIG.API_BASE_URL.replace(/\/+$/, '');
+  document.querySelector('#api-docs').href = `${apiBaseUrl}/docs`;
+  const form = document.querySelector('#upload');
+  const status = document.querySelector('#status');
+  const result = document.querySelector('#result');
+  const button = document.querySelector('#submit');
+  const video = document.querySelector('#video');
+  const timeline = document.querySelector('#timeline');
+  let videoUrl = null;
+  let videoFrames = [];
+  let displayedIndex = -1;
+  function resetRating(message) {
+    showEncouragement('');
+    document.querySelector('#score').textContent = '尚未評分';
+  }
+  function showEncouragement(message) {
+    const encouragement = document.querySelector('#encouragement');
+    encouragement.textContent = typeof message === 'string' ? message : '';
+    encouragement.hidden = !encouragement.textContent.trim();
+  }
+  function showRating(rating) {
+    const available = rating && Number.isFinite(rating.score);
+    showEncouragement(available ? rating.encouragement : '');
+    document.querySelector('#score').textContent = available
+      ? `${rating.score} / ${rating.max_score} 分` : '無法評分';
+    document.querySelector('#rating-detail').textContent = available
+      ? `可判定 ${rating.detected_count} / ${rating.total_count} 項，正確 ${rating.correct_count} / ${rating.detected_count} 項（${(rating.correct_ratio * 100).toFixed(1)}%）`
+      : '無法評分：沒有可判定的關節角度';
+  }
+  function showFeedback(data, timestamp = null) {
+    document.querySelector('#feedback').textContent = data.feedback;
+    document.querySelector('#feedback-time').textContent = timestamp === null
+      ? '' : `此建議於影片 ${timestamp.toFixed(2)} 秒更新，下一次更新至少間隔 2 秒。`;
+    document.querySelector('#suggestions').replaceChildren(...data.suggestions.map((text) => {
+      const item = document.createElement('li');
+      item.textContent = text;
+      return item;
+    }));
+  }
+  function showPrediction(data, includeFeedback = true) {
+    showRating(data.rating);
+    document.querySelector('#original').src = data.original_image;
+    const skeleton = document.querySelector('#skeleton');
+    skeleton.hidden = false;
+    skeleton.src = data.skeleton_image;
+    document.querySelector('#pose').textContent = data.pose;
+    document.querySelector('#assessment').textContent = data.comparison.overall_assessment;
+    if (includeFeedback) showFeedback(data);
+  }
+  function showLatestVideoFeedback(index) {
+    for (let i = index; i >= 0; i--) {
+      const frame = videoFrames[i];
+      if (frame.is_feedback_frame && frame.prediction) {
+        showFeedback(frame.prediction, frame.timestamp_seconds);
+        return;
+      }
+    }
+    document.querySelector('#feedback').textContent = '等待第一個可分析影格的回饋…';
+    document.querySelector('#feedback-time').textContent = '';
+    document.querySelector('#suggestions').replaceChildren();
+  }
+  function showFrame(index) {
+    const frame = videoFrames[index];
+    if (!frame || displayedIndex === index) return;
+    displayedIndex = index;
+    timeline.value = index;
+    document.querySelector('#frame-time').textContent = `${frame.timestamp_seconds.toFixed(2)} 秒（${index + 1}/${videoFrames.length}）`;
+    if (frame.prediction) {
+      showPrediction(frame.prediction, false);
+    } else {
+      showRating(null);
+      document.querySelector('#original').src = frame.original_image;
+      document.querySelector('#skeleton').hidden = true;
+      document.querySelector('#skeleton').removeAttribute('src');
+      document.querySelector('#pose').textContent = '無法判定';
+      document.querySelector('#assessment').textContent = frame.reason;
+      document.querySelector('#feedback').textContent = '';
+      document.querySelector('#feedback-time').textContent = '';
+      document.querySelector('#suggestions').replaceChildren();
+    }
+    showLatestVideoFeedback(index);
+  }
+  timeline.addEventListener('input', () => {
+    const index = Number(timeline.value);
+    showFrame(index);
+    if (!video.error && video.readyState >= 1) {
+      video.currentTime = videoFrames[index].timestamp_seconds;
+    }
+  });
+  video.addEventListener('timeupdate', () => {
+    if (video.error || video.readyState < 1) return;
+    let index = 0;
+    for (let i = 1; i < videoFrames.length; i++) {
+      if (videoFrames[i].timestamp_seconds > video.currentTime + 0.001) break;
+      index = i;
+    }
+    showFrame(index);
+  });
+  video.addEventListener('error', () => {
+    document.querySelector('#video-notice').textContent = '瀏覽器無法播放此影片格式，仍可拖曳分析時間軸查看骨架圖。';
+  });
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    resetRating('尚未評分：請上傳有效的照片或影片。');
+    result.hidden = true;
+    video.pause();
+    videoFrames = [];
+    displayedIndex = -1;
+    video.removeAttribute('src');
+    video.load();
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    videoUrl = null;
+    document.querySelector('#video-panel').hidden = true;
+    document.querySelector('#video-notice').textContent = '';
+    document.querySelector('#feedback-time').textContent = '';
+    status.className = '';
+    const file = document.querySelector('#photo').files[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm)$/i.test(file.name);
+    if (file.size > (isVideo ? 50 : 10) * 1024 * 1024) {
+      status.textContent = isVideo ? '影片不可超過 50 MiB，請先裁切或壓縮。' : '照片不可超過 10 MiB，請選擇較小的圖片。';
+      status.className = 'error';
+      return;
+    }
+    button.disabled = true;
+    resetRating('分析中，請稍候…');
+    status.textContent = isVideo ? '正在分析影片影格，Heavy 模型可能需要較長時間，請稍候…' : '正在分析照片，請稍候…';
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const endpoint = isVideo ? '/api/predict-video' : '/api/predict';
+      const response = await fetch(`${apiBaseUrl}${endpoint}`, { method: 'POST', body });
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '分析失敗，請檢查上傳檔案。');
+      if (isVideo) {
+        if (!data.frames?.length) throw new Error('回應沒有可查看的影片影格。');
+        videoFrames = data.frames;
+        timeline.max = videoFrames.length - 1;
+        videoUrl = URL.createObjectURL(file);
+        video.src = videoUrl;
+        document.querySelector('#video-panel').hidden = false;
+        document.querySelector('#video-summary').textContent = `取樣 ${data.sampled_frames} 張；符合標準 ${data.standard_frames} 張、未符合 ${data.nonstandard_frames} 張、角度判定不完整 ${data.indeterminate_frames} 張、人體無法分析 ${data.unavailable_frames} 張。`;
+        showFrame(0);
+        result.hidden = false;
+        status.textContent = '影片分析完成，可播放原影片或拖曳時間軸查看取樣結果。';
+        return;
+      }
+      if (!data.original_image || !data.skeleton_image) throw new Error('回應缺少圖片，請重新啟動更新後的後端服務。');
+      await Promise.all(['original', 'skeleton'].map((name) => new Promise((resolve, reject) => {
+        const img = document.querySelector('#' + name);
+        img.onload = resolve;
+        img.onerror = () => reject(new Error('圖片載入失敗，請重新分析。'));
+        img.src = data[name + '_image'];
+      })));
+      showPrediction(data);
+      result.hidden = false;
+      status.textContent = '分析完成，骨架標記顯示於下方。';
+    } catch (error) {
+      resetRating('本次分析未完成，尚無評分。');
+      status.className = 'error';
+      status.textContent = error.message || '無法連線，請確認後端服務正在執行。';
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
